@@ -1,0 +1,120 @@
+---
+title: 'Часть 2.2: Оцениваем наличие паттерна на глазок вместе с R'
+author: "Anonymous"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Для начала активируем нужные нам библиотеки, убедитесь в том, что у Вас установлены все необходимые модули.
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(ggstatsplot)
+```
+
+Cчитаем наш датасет и немного причешем данные, чтобы было удобно строить по ним графики. 
+
+```{r message=FALSE, warning=FALSE}
+data <- read_csv("Chisto_chisto.csv")
+data <- data[ -c(1) ]
+
+names(data)[names(data) == "Размер бюста"] <- "РазмерБюста"
+data$РазмерБюста <- as.character(data$РазмерБюста)
+
+df.summary <- data %>%
+  group_by(Анальный, `Цвет волос`) %>%
+  summarise(
+    sd = sd(`За два часа у нее`, na.rm = TRUE),
+    len = mean(`За два часа у нее`, na.rm = TRUE)
+  )
+
+df.summary$Анальный <- as.factor(df.summary$Анальный)
+```
+
+Данные у нас носят весьма специфичный характер, поэтому убираем детей от монитора. 
+В нашем датасете больше 50 столбцов и пришлось повозиться, чтобы подобрать комбинации
+категорий, дающих нам хоть какие-то видимые зависимости и соотношения. 
+
+В итоге, даже "наглядная" сторона нашего датасета показывает, что на рынке творится 
+полный хаос и между категориями нет какой-либо явной связи, как их не крути.
+
+Посмотрим и убедимся: 
+  
+```{r message=FALSE, warning=FALSE}
+ggplot(df.summary, aes(x=`Цвет волос`, y=len, fill=Анальный)) + 
+    geom_bar(position=position_dodge(), stat="identity",
+             colour="black", # Use black outlines,
+             size=.3) +      # Thinner lines
+    geom_errorbar(aes(ymin=len-sd, ymax=len+sd),
+                  size=.3,    # Thinner lines
+                  width=.2,
+                  position=position_dodge(.9)) +
+  xlab('Цвет Волос') +
+  ylab("Средняя цена") +
+  ggtitle("Средняя цена в зависимости от цвета волос и готовности к анальному сексу") +
+  scale_fill_discrete(name="Категория Анальный секс",
+                      breaks=c("1", "0"),
+                      labels=c("согласна", "не согласна"))+
+  scale_x_continuous(breaks=c(1,2,3,4,5),
+    labels=c("Брюнетка", "Шатенка", "Блондинка", "Русая", "Рыжая")) +
+  theme_bw()
+```
+
+
+```{r message=FALSE, warning=FALSE}
+ultraplot <- data %>%
+  group_by(РазмерБюста) %>%
+  summarise(price = `За ночь у нее`) %>%
+  filter(price<120000)
+```
+
+```{r message=FALSE, warning=FALSE}
+ggstatsplot::ggbetweenstats(
+  data = ultraplot,
+  x = РазмерБюста,
+  y = price,
+  ylab = "Цена за ночь",
+  title = "Распределение цены за ночь в зависимости от размера бюста",
+  messages = TRUE
+)
+```
+```{r message=FALSE, warning=FALSE}
+tidy <- data %>%
+  group_by(Страпон, Рост) %>%
+  summarise( price = `За час у нее`) %>%
+  filter (price < 15000)
+```
+
+```{r, echo=FALSE}
+tidy$`Страпон` <- as.factor(tidy$Страпон)
+ggplot(tidy, aes(x=Рост, y=price, color=`Страпон`)) +
+  geom_point(shape=1)+
+  geom_smooth(method=lm)+
+  ylab("Цена за час") + 
+  ggtitle("Цена за час в зависимости от роста и готовности к страпону") +
+  scale_color_discrete(breaks=c(0, 1),
+                       labels=c("Не согласна", "Согласна")) +
+  theme_bw()
+```
+
+```{r message=FALSE, warning=FALSE}
+data$`Лесби откровенное` <- as.factor(data$`Лесби откровенное`)
+ggplot(data, aes(x=Рост, color=`Лесби откровенное`)) +
+  geom_density(alpha=.3)+
+  scale_x_continuous(breaks=seq(150,190,5)) +
+  ylab("Плотность распределеня") + 
+  ggtitle("Распределение роста от готовности к лесбийским контактам") +
+  scale_color_discrete(breaks=c(0, 1),
+                       labels=c("Не согласна", "Согласна"))+
+  theme_bw()
+```
+
+
+На этом краткий обзор можно приостановить. Вывод один: не стоит быть слишком оптимистичным 
+насчёт предстоящей регрессии и прочих моделей, что мы прогоним по данным. 
+
+Возвращайтесь к части 3.
